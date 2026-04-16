@@ -2,8 +2,8 @@
 using Autodesk.Navisworks.Api;
 using ProjectDataBase.Config;
 using System.Linq;
-using ProjectDataBase.Library.Types;
-using System.IO;
+using System;
+using ProjectDataBase.Library.Tree;
 
 namespace ProjectDataBase
 {
@@ -23,9 +23,7 @@ namespace ProjectDataBase
 
             Library.Actions.Loader loader = new Library.Actions.Loader();
 
-            NW_Cache.Initialize(root);
-
-            int loaded = NW_Cache.TryLoadCache();
+            int loaded = NW_Cache.Initialize();
 
             if (loaded == 0)
             {
@@ -45,6 +43,40 @@ namespace ProjectDataBase
 
                 NW_Cache.Build(model.RootItem);
             }
+        }
+    }
+
+    [Plugin("ProjectDataBase.Search", "LF", DisplayName = "Search", ToolTip = "")]
+    public class SearchPlugin : AddInPlugin
+    {
+        public override int Execute(params string[] parameters)
+        {
+            var document = Application.MainDocument;
+
+            if (document == null || !document.Models.Any())
+                return 0;
+
+            // query via parâmetro (ou fallback)
+            string query = "proof";
+
+            Guid[] result = NW_Cache.Search_Cache.Search(query);
+
+            if (result == null || result.Length == 0)
+                return 0;
+
+            var modelItems = new ModelItemCollection();
+
+            for (int i = 0; i < result.Length; i++)
+            {
+                var item = ProjectDataBase.Config.NW_Cache.GetModelItem(result[i]);
+
+                if (item != null)
+                    modelItems.Add(item);
+            }
+
+            ProjectDataBase.Library.Tree.TreeFunctions.Isolate(modelItems);
+
+            return 0;
         }
     }
 

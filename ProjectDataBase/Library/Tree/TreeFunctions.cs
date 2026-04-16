@@ -1,4 +1,6 @@
 ﻿using Autodesk.Navisworks.Api;
+using Autodesk.Navisworks.Api.ComApi;
+using Autodesk.Navisworks.Api.Interop.ComApi;
 using Autodesk.Navisworks.Api.Interop.ComApiAutomation;
 using ProjectDataBase.Config;
 using System;
@@ -85,6 +87,44 @@ namespace ProjectDataBase.Library.Tree
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Isola uma coleção de ModelItems na visualização do Navisworks.
+        /// </summary>
+        /// <remarks>
+        /// Todos os outros elementos são ocultados, mantendo apenas os itens informados visíveis.
+        /// Pode alterar a seleção atual e o estado da visualização do usuário.
+        /// </remarks>
+        /// <param name="coll">Coleção de itens a serem isolados.</param>
+        /// <param name="selected">
+        /// Se true, define os itens como seleção atual antes de isolar; caso contrário, mantém a seleção atual.
+        /// </param>
+        public static void Isolate(ModelItemCollection coll, bool selected = true)
+        {
+            if (coll == null || coll.Count == 0)
+                return;
+
+            if (selected)
+            {
+                Autodesk.Navisworks.Api.Application.ActiveDocument.CurrentSelection.Clear();
+                Autodesk.Navisworks.Api.Application.ActiveDocument.CurrentSelection.AddRange(coll);
+            }
+
+            InwOpState10 state = ComApiBridge.State;
+            InwOpSelection2 comSelection = (InwOpSelection2)ComApiBridge.ToInwOpSelection(coll);
+
+            state.HiddenItemsResetAll();
+
+            InwOpSelection2 inverseSelection = (InwOpSelection2)state.ObjectFactory(
+                nwEObjectType.eObjectType_nwOpSelection, null, null);
+
+            inverseSelection.SelectAll();
+            inverseSelection.SubtractContents(comSelection);
+
+            state.set_SelectionHidden(inverseSelection, true);
+
+            state.ZoomInCurViewOnSel(comSelection);
         }
 
         /// <summary>

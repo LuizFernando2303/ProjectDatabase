@@ -45,7 +45,7 @@ namespace ProjectDataBase.Library.Plugins.ProjectReport
             if (root == null)
                 return 0;
 
-            NW_Cache.Initialize(root);
+            NW_Cache.Initialize();
 
             int loaded = NW_Cache.TryLoadCache();
 

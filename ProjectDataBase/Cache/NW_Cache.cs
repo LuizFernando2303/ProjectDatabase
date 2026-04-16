@@ -1,4 +1,5 @@
 ﻿using Autodesk.Navisworks.Api;
+using ProjectDataBase.Cache;
 using ProjectDataBase.Library.Tree;
 using ProjectDataBase.Library.Types;
 using System;
@@ -21,6 +22,9 @@ namespace ProjectDataBase.Config
         private const int CacheVersion = 2;
         private const int PropsVersion = 1;
         private const double EPS = 0.0001;
+        private const int divX = 8;
+        private const int divY = 8;
+        private const int divZ = 4;
 
         private static Dictionary<Guid, NodeCache> Cache =
             new Dictionary<Guid, NodeCache>(100000);
@@ -35,11 +39,14 @@ namespace ProjectDataBase.Config
             new Dictionary<Chunk, List<Guid>>(1024);
 
         public static ChunkCollection RootBoxes = new ChunkCollection();
+        public static Search_Cache Search_Cache = new Search_Cache();
 
         public static int Count => Cache.Count;
 
-        public static void Initialize(ModelItem root)
+        public static int Initialize()
         {
+            int result = 0;
+
             Directory.CreateDirectory(BasePath);
 
             string projectId = GetProjectId();
@@ -48,8 +55,11 @@ namespace ProjectDataBase.Config
             CurrentPropsFile = Path.Combine(BasePath, $"cache_props_{projectId}.bin");
 
             CaptureRootBoxes();
-            TryLoadCache();
-            //TryLoadPropertiesCache();
+            result = TryLoadCache();
+            TryLoadPropertiesCache();
+            LoadSearch();
+
+            return result;
         }
 
         private static string GetProjectId()
@@ -106,10 +116,21 @@ namespace ProjectDataBase.Config
                     if (bb == null) continue;
 
                     var box = Box.CreateFromBoundingBox(bb);
-                    box.CreateSubChunks(4, 4);
+                    box.CreateSubChunks(divX, divY, divZ);
                     RootBoxes.AddRange(box.SubChunks.Cast<Chunk>());
                 }
                 catch { }
+            }
+        }
+
+        private static void LoadSearch()
+        {
+            Guid[] items = GetElements();
+            foreach (Guid guid in items)
+            {
+                NodeCache node = GetNode(guid);
+                ElementProperty[] elementProperties = GetProperties(guid);
+                Search_Cache.AddNode(guid, node, elementProperties);
             }
         }
 
@@ -370,7 +391,16 @@ namespace ProjectDataBase.Config
             }
         }
 
-        private static string BuildPath(Guid id)
+        public static NodeCache GetNode(Guid guid)
+        {
+            NodeCache node;
+            if (Cache.TryGetValue(guid, out node))
+                return node;
+
+            return new NodeCache();
+        }
+
+        public static string BuildPath(Guid id)
         {
             var stack = new Stack<string>();
 

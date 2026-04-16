@@ -132,7 +132,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Config\NW_Cache.cs" />
+    <Compile Include="Cache\NW_Cache.cs" />
+    <Compile Include="Cache\Search_Cache.cs" />
     <Compile Include="Library\Actions\HighlightBox.cs" />
     <Compile Include="Library\Actions\Loader.cs" />
     <Compile Include="Library\Contexts\SelectionChangedContext.cs" />
@@ -146,7 +147,6 @@
     <Compile Include="Library\Types\CacheProfile.cs" />
     <Compile Include="Library\Types\Chunk.cs" />
     <Compile Include="Library\Types\ChunkCollection.cs" />
-    <Compile Include="Library\Types\Class1.cs" />
     <Compile Include="Library\Types\CompactBox.cs" />
     <Compile Include="Library\Types\NodeCache.cs" />
     <Compile Include="Library\Types\ProjectElement.cs" />
