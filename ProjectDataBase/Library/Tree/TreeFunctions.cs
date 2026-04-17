@@ -4,6 +4,7 @@ using Autodesk.Navisworks.Api.Interop.ComApi;
 using Autodesk.Navisworks.Api.Interop.ComApiAutomation;
 using ProjectDataBase.Config;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -51,6 +52,80 @@ namespace ProjectDataBase.Library.Tree
         /// <param name="identity">The GUID representing the identity of the ModelItem to locate.</param>
         /// <returns>The matching ModelItem if found; otherwise, null.</returns>
         public static ModelItem GetModelItemByPath(string path, Guid identity)
+        {
+            var document = Autodesk.Navisworks.Api.Application.ActiveDocument;
+            if (document == null)
+                return null;
+
+            var pathParts = path.Split('/')
+                                .Select(Normalize)
+                                .ToArray();
+
+            if (pathParts.Length == 0)
+                return null;
+
+            // nível atual
+            List<ModelItem> currentLevel = new List<ModelItem>();
+
+            foreach (var model in document.Models)
+            {
+                if (model?.RootItem != null)
+                    currentLevel.Add(model.RootItem);
+            }
+
+            // percorre nível a nível
+            for (int depth = 0; depth < pathParts.Length; depth++)
+            {
+                string target = pathParts[depth];
+                List<ModelItem> nextLevel = new List<ModelItem>(32);
+
+                for (int i = 0; i < currentLevel.Count; i++)
+                {
+                    var item = currentLevel[i];
+                    if (item == null) continue;
+
+                    var name = item.DisplayName;
+                    if (name == null) continue;
+
+                    if (!string.Equals(Normalize(name), target, StringComparison.Ordinal))
+                        continue;
+
+                    // último nível → validar GUID
+                    if (depth == pathParts.Length - 1)
+                    {
+                        try
+                        {
+                            var guid = Identity.IdentityFunctions.GetNewGuid(item);
+                            if (guid == identity)
+                                return item;
+                        }
+                        catch { }
+
+                        continue;
+                    }
+
+                    // próximo nível
+                    var children = item.Children;
+                    if (children == null) continue;
+
+                    foreach (var child in children)
+                    {
+                        if (child != null)
+                            nextLevel.Add(child);
+                    }
+                }
+
+                if (nextLevel.Count == 0)
+                    return null;
+
+                currentLevel = nextLevel;
+            }
+
+            return null;
+        }
+
+        [Obsolete]
+        public static ModelItem _GetModelItemByPath(string path, Guid identity)
         {
             // start timer
             //Stopwatch sw = Stopwatch.StartNew();
@@ -143,11 +218,6 @@ namespace ProjectDataBase.Library.Tree
             state.ZoomInCurViewOnSel(comSelection);
         }
 
-        /// <summary>
-        /// Normalizes a string by trimming whitespace and converting to lower case. If the input is null, it returns an empty string.
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
         private static string Normalize(string value)
         {
             return value?.Trim().ToLowerInvariant() ?? "";
