@@ -5,8 +5,10 @@ using Autodesk.Navisworks.Api.Interop.ComApiAutomation;
 using ProjectDataBase.Config;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ProjectDataBase.Library.Tree
@@ -50,6 +52,9 @@ namespace ProjectDataBase.Library.Tree
         /// <returns>The matching ModelItem if found; otherwise, null.</returns>
         public static ModelItem GetModelItemByPath(string path, Guid identity)
         {
+            // start timer
+            //Stopwatch sw = Stopwatch.StartNew();
+
             var document = Autodesk.Navisworks.Api.Application.ActiveDocument;
             if (document == null)
                 return null;
@@ -75,7 +80,18 @@ namespace ProjectDataBase.Library.Tree
                     var guid = Identity.IdentityFunctions.GetNewGuid(current);
 
                     if (guid == identity)
+                    {
+                        //sw.Stop();
+
+                        //var t = sw.Elapsed;
+
+                        //Debug.WriteLine(
+                        //    $"Model item found in: {t.TotalSeconds:F3}s " +
+                        //    $"({t.Hours:D2}:{t.Minutes:D2}:{t.Seconds:D2}.{t.Milliseconds:D3})"
+                        //);
+
                         return current;
+                    }
 
                     continue;
                 }

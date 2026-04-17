@@ -2,6 +2,7 @@
 using ProjectDataBase.Library.Types;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
@@ -58,14 +59,16 @@ namespace ProjectDataBase.Cache
             }
         }
 
-        public Guid[] Search(string query, int maxResults = 100)
+        public Guid[] Search(string query, int maxResults = 1000)
         {
+            var sw = Stopwatch.StartNew();
+
             if (string.IsNullOrWhiteSpace(query))
-                return new Guid[0];
+                return Empty(sw);
 
             var tokens = Tokenize(query).ToArray();
             if (tokens.Length == 0)
-                return new Guid[0];
+                return Empty(sw);
 
             var scores = new Dictionary<Guid, int>(1024);
 
@@ -89,13 +92,17 @@ namespace ProjectDataBase.Cache
             }
 
             if (scores.Count == 0)
-                return new Guid[0];
+                return Empty(sw);
 
-            return scores
-                .OrderByDescending(kv => kv.Value) // mais matches primeiro
+            var result = scores
+                .OrderByDescending(kv => kv.Value)
                 .Take(maxResults)
                 .Select(kv => kv.Key)
                 .ToArray();
+
+            Log(sw, "Search");
+
+            return result;
         }
 
         public static void Clear()
@@ -128,6 +135,26 @@ namespace ProjectDataBase.Cache
 
             if (sb.Length > 0)
                 yield return sb.ToString();
+        }
+
+        private Guid[] Empty(Stopwatch sw)
+        {
+            Log(sw, "Search");
+            return new Guid[0];
+        }
+
+        private void Log(Stopwatch sw, string name)
+        {
+            sw.Stop();
+
+            var t = sw.Elapsed;
+
+            string formatted =
+                t.TotalSeconds >= 1 ? $"{t.TotalSeconds:F3}s" :
+                t.TotalMilliseconds >= 1 ? $"{t.TotalMilliseconds:F2}ms" :
+                $"{t.TotalMilliseconds * 1000:F2}µs";
+
+            Debug.WriteLine($"{name}: {formatted}");
         }
     }
 }

@@ -26,6 +26,9 @@ namespace ProjectDataBase.Config
         private const int divY = 8;
         private const int divZ = 4;
 
+        private static bool _initialized = false;
+        private static readonly object _lock = new object();
+
         private static Dictionary<Guid, NodeCache> Cache =
             new Dictionary<Guid, NodeCache>(100000);
 
@@ -45,21 +48,55 @@ namespace ProjectDataBase.Config
 
         public static int Initialize()
         {
-            int result = 0;
+            if (_initialized)
+                return Cache.Count;
 
-            Directory.CreateDirectory(BasePath);
+            lock (_lock)
+            {
+                if (_initialized)
+                    return Cache.Count;
 
-            string projectId = GetProjectId();
+                Directory.CreateDirectory(BasePath);
 
-            CurrentCacheFile = Path.Combine(BasePath, $"cache_{projectId}.bin");
-            CurrentPropsFile = Path.Combine(BasePath, $"cache_props_{projectId}.bin");
+                string projectId = GetProjectId();
 
-            CaptureRootBoxes();
-            result = TryLoadCache();
-            TryLoadPropertiesCache();
-            LoadSearch();
+                CurrentCacheFile = Path.Combine(BasePath, $"cache_{projectId}.bin");
+                CurrentPropsFile = Path.Combine(BasePath, $"cache_props_{projectId}.bin");
 
-            return result;
+                CaptureRootBoxes();
+
+                int loaded = TryLoadCache();
+                TryLoadPropertiesCache();
+
+                if (loaded == 0)
+                {
+                    var doc = Application.MainDocument;
+
+                    if (doc?.Models != null)
+                    {
+                        Cache.Clear();
+                        PropertyCache.Clear();
+                        SpatialIndex.Clear();
+
+                        foreach (var model in doc.Models)
+                        {
+                            if (model?.RootItem == null)
+                                continue;
+
+                            Build(model.RootItem);
+                        }
+
+                        WriteCacheToFile();
+                        loaded = Cache.Count;
+                    }
+                }
+
+                LoadSearch();
+
+                _initialized = true;
+
+                return loaded;
+            }
         }
 
         private static string GetProjectId()
@@ -138,18 +175,15 @@ namespace ProjectDataBase.Config
         {
             if (root == null) return 0;
 
-            Cache.Clear();
-            PropertyCache.Clear();
-            SpatialIndex.Clear();
+            var stack = new Stack<(ModelItem item, Guid parent)>(1024);
 
-            var stack = new Stack<ModelItem>(1024);
-            stack.Push(root);
+            stack.Push((root, Guid.Empty));
 
             int count = 0;
 
             while (stack.Count > 0)
             {
-                var current = stack.Pop();
+                var (current, parentId) = stack.Pop();
                 if (current == null) continue;
 
                 Guid id;
@@ -162,7 +196,11 @@ namespace ProjectDataBase.Config
                     continue;
                 }
 
-                var node = new NodeCache();
+                NodeCache node;
+                if (!Cache.TryGetValue(id, out node))
+                    node = new NodeCache();
+
+                node.Parent = parentId;
                 node.Name = Pool(Normalize(current.DisplayName));
 
                 try
@@ -215,7 +253,8 @@ namespace ProjectDataBase.Config
                         {
                             var cid = Library.Identity.IdentityFunctions.GetNewGuid(child);
                             ids[i] = cid;
-                            stack.Push(child);
+
+                            stack.Push((child, id));
                         }
                         catch { }
                     }
@@ -228,19 +267,6 @@ namespace ProjectDataBase.Config
                 }
 
                 Cache[id] = node;
-
-                foreach (var cid in node.Children)
-                {
-                    if (cid == Guid.Empty) continue;
-
-                    NodeCache childNode;
-                    if (!Cache.TryGetValue(cid, out childNode))
-                        childNode = new NodeCache();
-
-                    childNode.Parent = id;
-                    Cache[cid] = childNode;
-                }
-
                 count++;
             }
 

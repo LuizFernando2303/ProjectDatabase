@@ -7,45 +7,6 @@ using ProjectDataBase.Library.Tree;
 
 namespace ProjectDataBase
 {
-    [Plugin("ProjectDataBase", "LF", DisplayName = "Load cache", ToolTip = "")]
-    public class LoadCache : AddInPlugin
-    {
-        public override int Execute(params string[] parameters)
-        {
-            var document = Application.MainDocument;
-
-            if (document == null || !document.Models.Any())
-                return 0;
-
-            var root = document.Models.FirstOrDefault()?.RootItem;
-            if (root == null)
-                return 0;
-
-            Library.Actions.Loader loader = new Library.Actions.Loader();
-
-            int loaded = NW_Cache.Initialize();
-
-            if (loaded == 0)
-            {
-                BuildCache(document);
-                NW_Cache.WriteCacheToFile();
-            }
-
-            return 0;
-        }
-
-        private void BuildCache(Document document)
-        {
-            foreach (var model in document.Models)
-            {
-                if (model?.RootItem == null)
-                    continue;
-
-                NW_Cache.Build(model.RootItem);
-            }
-        }
-    }
-
     [Plugin("ProjectDataBase.Search", "LF", DisplayName = "Search", ToolTip = "")]
     public class SearchPlugin : AddInPlugin
     {
@@ -56,8 +17,9 @@ namespace ProjectDataBase
             if (document == null || !document.Models.Any())
                 return 0;
 
-            // query via parâmetro (ou fallback)
-            string query = "proof";
+            NW_Cache.Initialize();
+
+            string query = "EXT";
 
             Guid[] result = NW_Cache.Search_Cache.Search(query);
 
