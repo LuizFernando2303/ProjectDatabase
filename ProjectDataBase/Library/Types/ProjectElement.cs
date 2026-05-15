@@ -63,9 +63,9 @@ namespace ProjectDataBase.Library.Types
 
     public struct ElementProperty
     {
-        public string Name { get; private set; }
-        public string Category { get; private set; }
-        public string Value { get; private set; }
+        public string Name { get; set; }
+        public string Category { get; set; }
+        public string Value { get; set; }
 
         public ElementProperty(string name, string category, string value)
         {

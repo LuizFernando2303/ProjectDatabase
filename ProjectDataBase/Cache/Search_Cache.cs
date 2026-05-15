@@ -100,7 +100,8 @@ namespace ProjectDataBase.Cache
                 .Select(kv => kv.Key)
                 .ToArray();
 
-            Log(sw, "Search");
+            string logStr = $"Search for '{query}' found {result.Length} results in {sw.ElapsedMilliseconds} ms.";
+            NW_Cache.Log(logStr);
 
             return result;
         }
@@ -139,22 +140,7 @@ namespace ProjectDataBase.Cache
 
         private Guid[] Empty(Stopwatch sw)
         {
-            Log(sw, "Search");
             return new Guid[0];
-        }
-
-        private void Log(Stopwatch sw, string name)
-        {
-            sw.Stop();
-
-            var t = sw.Elapsed;
-
-            string formatted =
-                t.TotalSeconds >= 1 ? $"{t.TotalSeconds:F3}s" :
-                t.TotalMilliseconds >= 1 ? $"{t.TotalMilliseconds:F2}ms" :
-                $"{t.TotalMilliseconds * 1000:F2}µs";
-
-            Debug.WriteLine($"{name}: {formatted}");
         }
     }
 }
