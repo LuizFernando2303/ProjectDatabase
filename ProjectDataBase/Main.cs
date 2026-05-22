@@ -1,47 +1,144 @@
-﻿using Autodesk.Navisworks.Api;
-using Autodesk.Navisworks.Api.Plugins;
+﻿using Autodesk.Navisworks.Api.Plugins;
+using Autodesk.Navisworks.Api;
 using ProjectDataBase.Config;
-using ProjectDataBase.Library.Tree;
+using ProjectDataBase.ProjectExplorer;
 using System;
 using System.Diagnostics;
-using System.Linq;
+using System.Threading;
+using System.Windows.Forms;
 
 namespace ProjectDataBase
 {
-    [Plugin("ProjectDataBase.Search", "LF", DisplayName = "Search", ToolTip = "")]
-    public class SearchPlugin : AddInPlugin
+    [Plugin("ProjectDataBase.Startup", "LF", DisplayName = "Startup")]
+    public class StartupPlugin : EventWatcherPlugin
     {
-        public override int Execute(params string[] parameters)
+        public override void OnLoaded()
         {
-            var document = Application.MainDocument;
+            try
+            {
+                Autodesk.Navisworks.Api.Application.ActiveDocumentChanged += OnActiveDocumentChanged;
 
-            if (document == null || !document.Models.Any())
-                return 0;
+                if (Autodesk.Navisworks.Api.Application.ActiveDocument != null)
+                {
+                    SubscribeToDocumentEvents(Autodesk.Navisworks.Api.Application.ActiveDocument);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error on plugin load: {ex}");
+            }
+        }
+
+        public override void OnUnloading()
+        {
+            try
+            {
+                Autodesk.Navisworks.Api.Application.ActiveDocumentChanged -= OnActiveDocumentChanged;
+
+                if (Autodesk.Navisworks.Api.Application.ActiveDocument != null)
+                {
+                    UnsubscribeFromDocumentEvents(Autodesk.Navisworks.Api.Application.ActiveDocument);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error on plugin unload: {ex}");
+            }
+        }
+
+        private void OnActiveDocumentChanged(object sender, EventArgs e)
+        {
+            var document = Autodesk.Navisworks.Api.Application.ActiveDocument;
+            if (document == null) return;
+
+            UnsubscribeFromDocumentEvents(document);
+            SubscribeToDocumentEvents(document);
+
+            EvaluateAndExecute(document);
+        }
+
+        private void OnDocumentFileNameChanged(object sender, EventArgs e)
+        {
+            if (sender is Document document)
+            {
+                EvaluateAndExecute(document);
+            }
+        }
+
+        private void EvaluateAndExecute(Document document)
+        {
+            if (document.IsClear || string.IsNullOrEmpty(document.Title))
+                return;
+
+            ExecuteOnProjectOpen(document);
+        }
+
+        private void ExecuteOnProjectOpen(Document document)
+        {
+            Debug.WriteLine($"Projeto aberto com sucesso: {document.Title}");
 
             NW_Cache.Initialize();
+        }
 
-            string query = "EXT";
+        private void SubscribeToDocumentEvents(Document doc)
+        {
+            doc.FileNameChanged += OnDocumentFileNameChanged;
+        }
 
-            Guid[] result =
-                NW_Cache.Search_Cache.Search(query);
-
-            if (result == null || result.Length == 0)
-                return 0;
-
-            var modelItems =
-                NW_Cache.GetModelItems(result);
-
-            if (modelItems == null || modelItems.Count == 0)
-                return 0;
-
-            TreeFunctions.Isolate(modelItems);
-
-            return 0;
+        private void UnsubscribeFromDocumentEvents(Document doc)
+        {
+            doc.FileNameChanged -= OnDocumentFileNameChanged;
         }
     }
 
-    [Plugin("ProjectReport", "LF", DisplayName = "Relatorio de Projeto", ToolTip = "")]
-    public class Report : Library.Plugins.ProjectReport.Loader { }
+    [Plugin("ProjectDataBase.Explorer", "LF", DisplayName = "Explorer", ToolTip = "")]
+    public class ExplorerPlugin : AddInPlugin
+    {
+        private SynchronizationContext Sc;
+
+        public override int Execute(params string[] parameters)
+        {
+            Sc = SynchronizationContext.Current;
+
+            NW_Cache.Initialize();
+            LoadUI(Sc);
+
+            return 0;
+        }
+
+        private void LoadUI(SynchronizationContext context)
+        {
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var form = new Form
+                    {
+                        Text = "Explorer",
+                        Width = 1200,
+                        Height = 800
+                    };
+
+                    var control = new ExplorerUi(context)
+                    {
+                        Dock = DockStyle.Fill
+                    };
+
+                    form.Controls.Add(control);
+
+                    System.Windows.Forms.Application.Run(form);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine(ex);
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.IsBackground = false;
+            thread.Start();
+        }
+    }
 
     [Plugin("___", "___", DisplayName = "___", ToolTip = "___")]
     public class Renderer : Library.Plugins.RenderObjects { }

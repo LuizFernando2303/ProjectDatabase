@@ -96,6 +96,11 @@
       <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Navisworks Manage 2026\Navisworks.Roamer.Interop.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="SQLitePCLRaw.batteries_v2, Version=2.1.11.2622, Culture=neutral, PublicKeyToken=8226ea5df37bcae9, processorArchitecture=MSIL">
       <HintPath>..\packages\SQLitePCLRaw.bundle_e_sqlite3.2.1.11\lib\net461\SQLitePCLRaw.batteries_v2.dll</HintPath>
     </Reference>
@@ -110,6 +115,7 @@
       <HintPath>..\packages\System.Buffers.4.4.0\lib\netstandard2.0\System.Buffers.dll</HintPath>
     </Reference>
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Memory.4.5.3\lib\netstandard2.0\System.Memory.dll</HintPath>
     </Reference>
@@ -122,6 +128,7 @@
     </Reference>
     <Reference Include="System.Transactions" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xaml" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions">
       <Private>True</Private>
@@ -130,6 +137,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Cache\NW_Cache.cs" />
@@ -148,15 +156,31 @@
     <Compile Include="Library\Types\Chunk.cs" />
     <Compile Include="Library\Types\ChunkCollection.cs" />
     <Compile Include="Library\Types\CompactBox.cs" />
+    <Compile Include="Library\Types\ConfigSerializer.cs" />
     <Compile Include="Library\Types\NodeCache.cs" />
     <Compile Include="Library\Types\ProjectElement.cs" />
     <Compile Include="Library\Types\ProjectReport.cs" />
     <Compile Include="Main.cs" />
+    <Compile Include="ProjectExplorer\ExplorerUi.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ProjectExplorer\ExplorerUi.Designer.cs">
+      <DependentUpon>ExplorerUi.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ProjectExplorer\Utils.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
     <None Include="packages.config" />
+    <None Include="ProjectExplorer\config.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="ProjectExplorer\ExplorerUi.resx">
+      <DependentUpon>ExplorerUi.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

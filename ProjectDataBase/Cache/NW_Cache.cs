@@ -38,6 +38,8 @@ namespace ProjectDataBase.Config
         private static string CurrentCacheFile;
         private static string CurrentPropsFile;
 
+        private static string _currentProjectId;
+
         private const int CacheVersion = 3;
         private const int PropsVersion = 1;
         private const double EPS = 0.0001;
@@ -67,27 +69,26 @@ namespace ProjectDataBase.Config
 
         public static int Initialize()
         {
-            if (_initialized)
-            {
-                string message = $"Cache already initialized. Current cache count: {Cache.Count}";
-                Log(message);
-
-                return Cache.Count;
-            }
+            var doc = Application.ActiveDocument;
+            string projectId = GetProjectId(doc); 
 
             lock (_lock)
             {
-                if (_initialized)
+                if (_initialized && _currentProjectId != projectId)
                 {
-                    string message = $"Cache already initialized. Current cache count: {Cache.Count}";
+                    Log($"Project changed: {_currentProjectId} -> {projectId}");
+                    ResetCache(); 
+                }
+
+                if (_initialized && _currentProjectId == projectId)
+                {
+                    string message = $"Cache already initialized for project {projectId}. Current cache count: {Cache.Count}";
                     Log(message);
                     return Cache.Count;
                 }
 
                 Directory.CreateDirectory(BasePath);
                 Log($"Initializing cache... Base path: {BasePath}");
-
-                string projectId = GetProjectId();
                 Log($"Project ID: {projectId}");
 
                 CurrentCacheFile = Path.Combine(BasePath, $"cache_{projectId}.bin");
@@ -102,13 +103,11 @@ namespace ProjectDataBase.Config
                 Log($"Captured root boxes in {sw.Elapsed.TotalSeconds:F2} seconds");
 
                 sw.Restart();
-
                 int loaded = TryLoadCache();
                 sw.Stop();
                 Log($"Cache Loaded {loaded}");
 
                 sw.Restart();
-
                 TryLoadPropertiesCache();
                 sw.Stop();
                 Log($"Properties cache loaded {loaded}");
@@ -116,8 +115,6 @@ namespace ProjectDataBase.Config
                 if (loaded == 0)
                 {
                     Log("Building cache from document...");
-
-                    var doc = Application.MainDocument;
 
                     if (doc?.Models != null)
                     {
@@ -141,13 +138,13 @@ namespace ProjectDataBase.Config
                 }
 
                 sw.Restart();
-
-                LoadSearch();
+                //LoadSearch();
                 sw.Stop();
                 Log($"Search cache loaded in {sw.Elapsed.TotalSeconds:F2} seconds");
 
+                _currentProjectId = projectId; 
                 _initialized = true;
-
+                
                 string log = $"Cache initialized. Loaded {Cache.Count} items.";
                 Log(log);
 
@@ -155,11 +152,11 @@ namespace ProjectDataBase.Config
             }
         }
 
-        private static string GetProjectId()
+        private static string GetProjectId(Document document)
         {
             try
             {
-                var doc = Application.MainDocument;
+                var doc = document;
                 string source = doc?.FileName ?? doc?.Title ?? "";
 
                 if (string.IsNullOrEmpty(source))
@@ -236,6 +233,8 @@ namespace ProjectDataBase.Config
             if (root == null)
                 return 0;
 
+            Guid rootGuid;
+
             var stack =
                 new Stack<(ModelItem item, Guid parent)>(1024);
 
@@ -257,6 +256,7 @@ namespace ProjectDataBase.Config
                     id = Library.Identity
                         .IdentityFunctions
                         .GetNewGuid(current);
+                    rootGuid = id;
                 }
                 catch (Exception ex)
                 {
@@ -367,6 +367,10 @@ namespace ProjectDataBase.Config
                 }
 
                 Cache[id] = node;
+
+                // mark the root node
+                if (id == rootGuid)
+                    Cache[id].Parent = Guid.Empty;
 
                 count++;
             }
@@ -601,6 +605,16 @@ namespace ProjectDataBase.Config
                 return node;
 
             return new NodeCache();
+        }
+
+        public static Guid GetGuid(NodeCache node)
+        {
+            return Cache.FirstOrDefault(kv => kv.Value == node).Key;
+        }
+
+        public static NodeCache GetRootNode()
+        {
+            return Cache.Values.FirstOrDefault(n => n.Parent == Guid.Empty) ?? new NodeCache();
         }
 
         public static string BuildPath(Guid id)
@@ -870,16 +884,21 @@ namespace ProjectDataBase.Config
             return Math.Abs(a - b) < EPS;
         }
 
-        public static void Reset()
+        private static void ResetCache()
         {
-            Cache.Clear();
-            PropertyCache.Clear();
-            SpatialIndex.Clear();
-            StringPool.Clear();
+            lock (_lock)
+            {
+                Cache.Clear();
+                PropertyCache.Clear();
+                SpatialIndex.Clear();
 
-            Search_Cache.Clear();
+                _initialized = false;
 
-            _initialized = false;
+                CurrentCacheFile = null;
+                CurrentPropsFile = null;
+
+                Log("Cache reset");
+            }
         }
 
         private static void StartLogger()
@@ -924,6 +943,8 @@ namespace ProjectDataBase.Config
 
         public static void Log(string message)
         {
+            Debug.WriteLine(message);
+
             StartLogger();
 
             _logQueue.Enqueue(

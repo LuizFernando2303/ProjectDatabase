@@ -1,0 +1,19 @@
+{
+  "config": {
+    "properties": [
+      {
+        "category": "Item",
+        "properties": [
+          {
+            "name": "Name",
+            "conversion": "String"
+          },
+          {
+            "name": "Type",
+            "conversion": "String"
+          }
+        ]
+      }
+    ]
+  }
+}
